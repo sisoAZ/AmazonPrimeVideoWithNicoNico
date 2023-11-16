@@ -17,13 +17,18 @@ let COLOR = {
     black: "#000"
 };
 
+let COMMENT_SIZE = {
+    BIG_COMMENT_SIZE: 100,
+    SMALL_COMMENT_SIZE: 30
+}
+
 var COMMENT_CONFIG = {
     NORMAL_BEFORE_TIME: 100,
     NORMAL_AFTER_TIME: 300,
     BOTTOM_TIME: 300,
     TOP_TIME: 300,
     FONT_SIZE_RATE: 0.08, // スクリーンサイズ（幅と高さの大きいほう)に対しての比
-    FONT_SIZE_PX: 48, // 実際のフォントサイズ
+    FONT_SIZE_PX: 60, // 実際のフォントサイズ
     ROW_COUNT: 10
 };
 
@@ -53,11 +58,11 @@ var AmazonNico = {
 class VideoComment{
     constructor(comment){
         this.comment = comment.text;
-        this.vpos = parseInt(comment.vpos);
+        this.vpos = parseInt(comment.vpos) / 10;
         this.position = [null, null];
 
         if(comment.mail){
-            var commands = comment.mail.split(" ");
+            var commands = comment.mail;
     
             if(commands.indexOf("shita") >= 0){
                 this.posType = POSSITION_TYPE.BOTTOM;
@@ -79,6 +84,16 @@ class VideoComment{
             }
             if(!this.color){
                 this.color = COLOR.white;
+            }
+
+            if (commands.indexOf("big") >= 0){
+                this.commentSize = COMMENT_SIZE.BIG_COMMENT_SIZE;
+            }
+            else if (commands.indexOf("small") >= 0){
+                this.commentSize = COMMENT_SIZE.SMALL_COMMENT_SIZE;
+            }
+            else{
+                this.commentSize = COMMENT_CONFIG.FONT_SIZE_PX;
             }
         }
         else{
@@ -122,11 +137,12 @@ class VideoComment{
         }
 
         var ctx = AmazonNico.ctx;
-        var fontSize = COMMENT_CONFIG.FONT_SIZE_PX
+        var fontSize = this.commentSize;
 
         ctx.font = fontSize + "px 'ＭＳ ゴシック'";
         ctx.strokeStyle = "#000";
         ctx.fillStyle = this.color;
+        ctx.lineWidth = 3;
 
         var width = ctx.measureText(this.comment).width;
         var overlayWidth = AmazonNico.canvas.width;
@@ -150,7 +166,7 @@ class VideoComment{
         }
 
         var ctx = AmazonNico.ctx;
-        var fontSize = COMMENT_CONFIG.FONT_SIZE_PX;
+        var fontSize = this.commentSize;
 
         ctx.font = fontSize + "px 'ＭＳ ゴシック'";
         ctx.strokeStyle = "#000";
@@ -176,7 +192,7 @@ class VideoComment{
         }
 
         var ctx = AmazonNico.ctx;
-        var fontSize = COMMENT_CONFIG.FONT_SIZE_PX;
+        var fontSize = this.commentSize;
 
         ctx.font = fontSize + "px 'ＭＳ ゴシック'";
         ctx.strokeStyle = "#000";
@@ -282,6 +298,8 @@ class VideoComment{
 
 chrome.runtime.onMessage.addListener(
     function(request, sender, sendResponse){
+        console.log(request)
+        console.log("Receive new comments");
         switch(request.type){
             case "new":
                 NewComment(request);
@@ -298,12 +316,14 @@ function NewComment(request){
 
     if(!AmazonNico.commentOverlay){
         AmazonNico.commentOverlay = $("<canvas>").attr('id', 'comment_overlay');
-        $(".overlaysContainer").append(AmazonNico.commentOverlay);
+        //$(".atvwebplayersdk-captions-overlay").append(AmazonNico.commentOverlay);
+        $(".xrayPopUpView").append(AmazonNico.commentOverlay);
     }
 
     var overlay = document.getElementById('comment_overlay');
     AmazonNico.canvas = overlay;
     AmazonNico.ctx = overlay.getContext('2d');
+    console.log(AmazonNico.canvas);    
 
     var videos = $("video");
     // 広告があるとvideoが2つある
@@ -316,8 +336,8 @@ function NewComment(request){
     AmazonNico.comments.sort((a, b) => {
         return a.vpos - b.vpos;
     });
-
-    var videoTimes = $(".time").text().split(" / ");
+    console.log($(".atvwebplayersdk-timeindicator-text").text());
+    var videoTimes = $(".atvwebplayersdk-timeindicator-text").text().split(" / ");
     var videoTime0 = GetVideoTime(videoTimes[0]);
     var videoTime1 = GetVideoTime(videoTimes[1]);
 
@@ -364,14 +384,12 @@ function ShowComment(){
     AmazonNico.canvas.height = overlayHeight;
     AmazonNico.ctx.clearRect(0, 0, overlayWidth, overlayHeight);
     COMMENT_CONFIG.FONT_SIZE_PX = Min(overlayWidth, overlayHeight) * COMMENT_CONFIG.FONT_SIZE_RATE;
-    console.log(COMMENT_CONFIG.FONT_SIZE_PX);
 
     if(!AmazonNico.video){
         return;
     }
 
-    // Amazon PrimeのvideoはなぜかcurrentTime=10から始まる
-    var nicoTime = (AmazonNico.video.currentTime - 10) * 100;
+    var nicoTime = AmazonNico.video.currentTime * 100;
 
     for(var i = 0;i < AmazonNico.comments.length;i++){
         AmazonNico.comments[i].Display(nicoTime);
