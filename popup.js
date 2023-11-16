@@ -1,6 +1,7 @@
 
 var videoId = "";
 var videoInfo = { };
+var videoData;
 
 function GetVideoInfo(){
     videoId = $("#video_id").val();
@@ -10,21 +11,10 @@ function GetVideoInfo(){
 
     var intervals = [
         setInterval(() => {
-            if(videoInfo["thread_id"]){
+            //if((videoInfo["isUserVideo"] || videoInfo["threadkey"]) &&
+            //    videoInfo["waybackkey"]){
+            if (videoInfo["threads"]) {
                 clearInterval(intervals[0]);
-                GetVideoInfoWithURL("http://flapi.nicovideo.jp/api/getthreadkey?thread=" + videoInfo["thread_id"]);
-            }
-        }, 10),
-        setInterval(() => {
-            if(videoInfo["thread_id"]){
-                clearInterval(intervals[1]);
-                GetVideoInfoWithURL("http://flapi.nicovideo.jp/api/getwaybackkey?thread=" + videoInfo["thread_id"]);
-            }
-        }, 10),
-        setInterval(() => {
-            if((videoInfo["isUserVideo"] || videoInfo["threadkey"]) &&
-                videoInfo["waybackkey"]){
-                clearInterval(intervals[2]);
                 GetComment();
             }
         }, 10)
@@ -55,6 +45,54 @@ function GetVideoInfoWithURL(url){
 function GetComment(time){
     var isNew = !!!time;
     time = isNew ? parseInt(new Date().getTime() / 1000) : time;
+    var xhr = new XMLHttpRequest();
+
+    xhr.open("POST", "https://nv-comment.nicovideo.jp/v1/threads", true);
+    xhr.setRequestHeader("x-client-os-type", "others");
+    xhr.setRequestHeader("x-frontend-id", "6");
+    xhr.setRequestHeader("x-frontend-version", "0");
+    
+    var postJson = videoData.comment.nvComment;
+    //remove key "server" from postJson
+    delete postJson.server;
+    //added key "additionals" to postJson
+    postJson.additionals = {};
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4) {
+            comments = [];
+            var commentData = JSON.parse(xhr.responseText);
+            console.log(commentData);
+            commentData.data.threads[2].comments.forEach((content) => {
+                if (content.commands.indexOf("ca") != -1) {
+                    return;
+                }
+                var comment = {
+                    "vpos": content.vposMs,
+                    "text": content.body,
+                    "mail": content.commands ? content.commands : null
+                }
+                comments.push(JSON.stringify(comment));
+            });
+
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                console.log(tabs);
+                chrome.tabs.sendMessage(tabs[0].id, {
+                    "type": isNew ? "new" : "add",
+                    "comments": comments,
+                }, null);
+                console.log(isNew);
+                console.log("send comments");
+            });
+        }
+    }
+
+    xhr.send(JSON.stringify(postJson));
+}
+
+function GetComment2(time){
+    var isNew = !!!time;
+    time = isNew ? parseInt(new Date().getTime() / 1000) : time;
 
     var postJson = MakePostJSON(videoInfo["threads"], time);
 
@@ -63,6 +101,8 @@ function GetComment(time){
     xhr.open("POST", "http://nmsg.nicovideo.jp/api.json/", true);
     xhr.onreadystatechange = function() {
         if (xhr.readyState == 4) {
+            console.log(xhr.responseText)
+            console.log(xhr.status)
             var res = JSON.parse(xhr.responseText);
             var comments = [];
             var minDate = null;
@@ -107,20 +147,27 @@ function GetVideoInfoFromVideoPage(videoId){
     xhr.open("GET", url, true);
     xhr.onreadystatechange = function() {
         if(xhr.readyState == 4){
+            console.log(videoInfo)
             var parser = new DOMParser();
             var dom = parser.parseFromString(xhr.responseText, "text/html");
             var watchData = dom.getElementById("js-initial-watch-data");
             var apiDataString = watchData.getAttribute("data-api-data");
             var apiData = JSON.parse(apiDataString);
+            videoData = apiData;
+            console.log("API DATA")
+            console.log(apiData)
 
             // 分単位の動画時間（秒は切り上げ）
             videoInfo["video_duration"] = Math.ceil(apiData.video.duration / 60);
             videoInfo["user_id"] = apiData.viewer.id;
-            videoInfo["thread_id"] = apiData.commentComposite.threads.filter((th)=>{
+            //videoInfo["user_id"] = "56896211";
+            videoInfo["thread_id"] = apiData.comment.threads.filter((th)=>{
                 return th.isActive && th.isDefaultPostTarget;
             })[0].id;
-
-            videoInfo["threads"] = apiData.commentComposite.threads;
+            videoInfo["threadkey"] = apiData.comment.nvComment.threadKey;
+            videoInfo["waybackkey"] = apiData.comment.nvComment.waybackkey;
+            console.log(videoInfo)
+            videoInfo["threads"] = apiData.comment.threads;
         }
     }
     xhr.send();
