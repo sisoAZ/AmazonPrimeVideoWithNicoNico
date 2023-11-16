@@ -36,4 +36,4 @@ https://account.nicovideo.jp/login
 https://www.nicovideo.jp/watch/sm35618213
 
 ### 6. 使い方
-アマゾンプライムで見たい動画を選択し、動画の再生が始まったら拡張機能からAmazonPrimeVideoWithNicoNicoを選択して、動画IDを入れる。動画IDはニコニコ動画の視聴ページにあります。www.nicovideo.jp/watch/so42904900だったらso42904900が動画ID
+アマゾンプライムで見たい動画を選択し、動画の再生が始まったら拡張機能からAmazonPrimeVideoWithNicoNicoを選択して、動画IDを入れる。動画IDはニコニコ動画の視聴ページにあります。nicovideo.jp/watch/so42904900だったらso42904900が動画ID
